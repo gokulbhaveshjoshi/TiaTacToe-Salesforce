@@ -1,0 +1,48 @@
+.game-board {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    margin: 0 auto;
+}
+
+.board-row {
+    display: flex;
+    flex-direction: row;
+}
+
+.board-cell {
+    width: 80px;
+    height: 80px;
+    border: 1px solid #d8dde6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.board-cell:hover {
+    background-color: #f3f2f2;
+}
+
+/* First row */
+.board-row:first-child .board-cell {
+    border-top: 3px solid #16325c;
+}
+
+/* Last row */
+.board-row:last-child .board-cell {
+    border-bottom: 3px solid #16325c;
+}
+
+/* First column */
+.board-row .board-cell:first-child {
+    border-left: 3px solid #16325c;
+}
+
+/* Last column */
+.board-row .board-cell:last-child {
+    border-right: 3px solid #16325c;
+}
