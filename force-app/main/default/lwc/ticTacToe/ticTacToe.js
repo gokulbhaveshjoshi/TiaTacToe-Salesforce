@@ -1,4 +1,4 @@
-import { LightningElement, track, api } from 'lwc';
+import { LightningElement, track } from 'lwc';
 
 export default class TicTacToe extends LightningElement {
     @track board = [
@@ -12,11 +12,143 @@ export default class TicTacToe extends LightningElement {
     @track scoreX = 0;
     @track scoreO = 0;
     @track scoreTie = 0;
+    @track soundEnabled = true;
+    @track winningCells = [];
     
-    @api recordId; // For saving results related to a record if needed
+    // Audio context
+    audioContext = null;
+    
+    get soundIcon() {
+        return this.soundEnabled ? 'utility:volume_high' : 'utility:volume_off';
+    }
+    
+    get soundTitle() {
+        return this.soundEnabled ? 'Sound On' : 'Sound Off';
+    }
     
     connectedCallback() {
         this.initializeGame();
+        this.initializeAudioContext();
+    }
+    
+    initializeAudioContext() {
+        try {
+            // Create audio context
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContext();
+        } catch (e) {
+            console.error('Web Audio API is not supported in this browser', e);
+            this.soundEnabled = false;
+        }
+    }
+    
+    // Generate different sound types
+    playClickSound() {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        this.playTone(600, 0.05, 'square');
+    }
+    
+    playWinSound() {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        // Play a win melody
+        this.playTone(500, 0.1, 'sine');
+        setTimeout(() => this.playTone(600, 0.1, 'sine'), 100);
+        setTimeout(() => this.playTone(700, 0.1, 'sine'), 200);
+        setTimeout(() => this.playTone(800, 0.2, 'sine'), 300);
+    }
+    
+    playLoseSound() {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        // Play a descending melody for losing
+        this.playTone(700, 0.1, 'sine');
+        setTimeout(() => this.playTone(600, 0.1, 'sine'), 100);
+        setTimeout(() => this.playTone(500, 0.1, 'sine'), 200);
+        setTimeout(() => this.playTone(400, 0.2, 'sine'), 300);
+    }
+    
+    playTieSound() {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        // Play a two-tone signal for tie
+        this.playTone(400, 0.15, 'triangle');
+        setTimeout(() => this.playTone(350, 0.15, 'triangle'), 200);
+    }
+    
+    playNewGameSound() {
+        if (!this.soundEnabled || !this.audioContext) return;
+        
+        // Play a sweep for new game
+        this.playTone(350, 0.1, 'sine');
+        setTimeout(() => this.playTone(400, 0.1, 'sine'), 100);
+        setTimeout(() => this.playTone(450, 0.1, 'sine'), 200);
+    }
+    
+    playTone(frequency, duration, type = 'sine') {
+        try {
+            // Resume audio context if it was suspended (browser autoplay policy)
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume();
+            }
+            
+            // Create oscillator
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            // Set up oscillator
+            oscillator.type = type;
+            oscillator.frequency.value = frequency;
+            
+            // Set up gain (volume)
+            gainNode.gain.value = 0.3;
+            
+            // Add fade out effect
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.01, this.audioContext.currentTime + duration
+            );
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // Start & stop
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + duration);
+        } catch (e) {
+            console.error('Error playing tone:', e);
+        }
+    }
+    
+    playSound(soundType) {
+        if (!this.soundEnabled) return;
+        
+        switch (soundType) {
+            case 'click':
+                this.playClickSound();
+                break;
+            case 'win':
+                this.playWinSound();
+                break;
+            case 'lose':
+                this.playLoseSound();
+                break;
+            case 'tie':
+                this.playTieSound();
+                break;
+            case 'newGame':
+                this.playNewGameSound();
+                break;
+        }
+    }
+    
+    toggleSound() {
+        this.soundEnabled = !this.soundEnabled;
+        // Play a sound when turning sound back on as feedback
+        if (this.soundEnabled) {
+            this.playSound('click');
+        }
     }
     
     initializeGame() {
@@ -28,6 +160,7 @@ export default class TicTacToe extends LightningElement {
         this.currentPlayer = 'X';
         this.gameStatus = "Player X's turn";
         this.gameEnded = false;
+        this.winningCells = [];
     }
     
     handleCellClick(event) {
@@ -39,6 +172,9 @@ export default class TicTacToe extends LightningElement {
         // Check if cell is already filled
         if (this.board[row][col] !== '') return;
         
+        // Play click sound
+        this.playSound('click');
+        
         // Update board
         this.board[row][col] = this.currentPlayer;
         
@@ -46,25 +182,30 @@ export default class TicTacToe extends LightningElement {
         this.board = [...this.board];
         
         // Check for winner
-        const winner = this.checkWinner();
+        const result = this.checkWinner();
         
-        if (winner) {
+        if (result.winner) {
             this.gameEnded = true;
-            if (winner === 'tie') {
+            
+            if (result.winner === 'tie') {
                 this.gameStatus = "Game ended in a tie!";
                 this.scoreTie++;
+                this.playSound('tie');
+                this.animateTie();
             } else {
-                this.gameStatus = `Player ${winner} wins!`;
-                if (winner === 'X') {
+                this.winningCells = result.winningCells;
+                this.gameStatus = `Player ${result.winner} wins!`;
+                
+                if (result.winner === 'X') {
                     this.scoreX++;
+                    this.playSound('win');
+                    this.animateWin();
                 } else {
                     this.scoreO++;
+                    this.playSound('lose');
+                    this.animateLose();
                 }
             }
-            
-            // Save game result
-            this.saveResult(winner);
-            
         } else {
             // Switch player
             this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
@@ -74,28 +215,37 @@ export default class TicTacToe extends LightningElement {
     
     checkWinner() {
         const board = this.board;
+        const result = { winner: null, winningCells: [] };
         
         // Check rows
         for (let i = 0; i < 3; i++) {
             if (board[i][0] !== '' && board[i][0] === board[i][1] && board[i][1] === board[i][2]) {
-                return board[i][0];
+                result.winner = board[i][0];
+                result.winningCells = [[i, 0], [i, 1], [i, 2]];
+                return result;
             }
         }
         
         // Check columns
         for (let i = 0; i < 3; i++) {
             if (board[0][i] !== '' && board[0][i] === board[1][i] && board[1][i] === board[2][i]) {
-                return board[0][i];
+                result.winner = board[0][i];
+                result.winningCells = [[0, i], [1, i], [2, i]];
+                return result;
             }
         }
         
         // Check diagonals
         if (board[0][0] !== '' && board[0][0] === board[1][1] && board[1][1] === board[2][2]) {
-            return board[0][0];
+            result.winner = board[0][0];
+            result.winningCells = [[0, 0], [1, 1], [2, 2]];
+            return result;
         }
         
         if (board[0][2] !== '' && board[0][2] === board[1][1] && board[1][1] === board[2][0]) {
-            return board[0][2];
+            result.winner = board[0][2];
+            result.winningCells = [[0, 2], [1, 1], [2, 0]];
+            return result;
         }
         
         // Check for tie
@@ -109,28 +259,74 @@ export default class TicTacToe extends LightningElement {
             }
         }
         
-        if (isTie) return 'tie';
+        if (isTie) {
+            result.winner = 'tie';
+        }
         
-        return null;
+        return result;
+    }
+    
+    isCellWinning(row, col) {
+        return this.winningCells.some(cell => cell[0] === row && cell[1] === col);
+    }
+    
+    getCellClass(row, col) {
+        let classes = 'board-cell';
+        
+        if (this.isCellWinning(row, col)) {
+            classes += ' winning-cell';
+        }
+        
+        return classes;
+    }
+    
+    animateWin() {
+        // Add animation class to game board
+        const gameBoard = this.template.querySelector('.game-board');
+        gameBoard.classList.add('win-animation');
+        
+        // Add winning status animation
+        const statusElem = this.template.querySelector('.game-status');
+        statusElem.classList.add('win-text');
+    }
+    
+    animateLose() {
+        // Add animation class to game board
+        const gameBoard = this.template.querySelector('.game-board');
+        gameBoard.classList.add('lose-animation');
+        
+        // Add losing status animation
+        const statusElem = this.template.querySelector('.game-status');
+        statusElem.classList.add('lose-text');
+    }
+    
+    animateTie() {
+        // Add animation class to game board
+        const gameBoard = this.template.querySelector('.game-board');
+        gameBoard.classList.add('tie-animation');
+        
+        // Add tie status animation
+        const statusElem = this.template.querySelector('.game-status');
+        statusElem.classList.add('tie-text');
     }
     
     startNewGame() {
+        this.playSound('newGame');
+        
+        // Remove animation classes
+        const gameBoard = this.template.querySelector('.game-board');
+        if (gameBoard) {
+            gameBoard.classList.remove('win-animation', 'lose-animation', 'tie-animation');
+        }
+        
+        
+        const statusElem = this.template.querySelector('.game-status');
+        if (statusElem) {
+            statusElem.classList.remove('win-text', 'lose-text', 'tie-text');
+        }
+        
+        
         this.initializeGame();
-    }
-    
-    saveResult(result) {
-        /*saveGameResult({ 
-            winner: result === 'tie' ? 'Tie' : result,
-            xMoves: this.countMoves('X'),
-            oMoves: this.countMoves('O'),
-            recordId: this.recordId
-        })
-        .then(response => {
-            console.log('Game result saved:', response);
-        })
-        .catch(error => {
-            console.error('Error saving game result:', error);
-        });*/
     }
     
     countMoves(player) {

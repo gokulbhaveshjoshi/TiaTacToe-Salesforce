@@ -3,6 +3,7 @@
     flex-direction: column;
     width: 240px;
     margin: 0 auto;
+    transition: transform 0.5s ease;
 }
 
 .board-row {
@@ -20,10 +21,10 @@
     font-size: 36px;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease;
 }
 
-.board-cell:hover {
+.board-cell:hover:not(.winning-cell) {
     background-color: #f3f2f2;
 }
 
@@ -45,4 +46,114 @@
 /* Last column */
 .board-row .board-cell:last-child {
     border-right: 3px solid #16325c;
+}
+
+/* Winning cell animation */
+.winning-cell {
+    animation: pulse 1.5s infinite;
+    background-color: rgba(75, 202, 129, 0.3);
+    border-color: #4bca81 !important;
+    color: #0070d2;
+    font-weight: bold;
+    transform: scale(1.05);
+    z-index: 1;
+}
+
+/* Win animation for game board */
+.win-animation {
+    animation: celebrate 1s ease;
+}
+
+/* Lose animation for game board */
+.lose-animation {
+    animation: shake 0.5s ease;
+}
+
+/* Tie animation for game board */
+.tie-animation {
+    animation: bounce 0.5s ease;
+}
+
+/* Status text animations */
+.game-status {
+    transition: all 0.3s ease;
+}
+
+.win-text {
+    color: #4bca81;
+    font-weight: bold;
+    animation: scaleText 0.5s ease;
+    transform: scale(1.1);
+}
+
+.lose-text {
+    color: #c23934;
+    font-weight: bold;
+    animation: scaleText 0.5s ease;
+    transform: scale(1.1);
+}
+
+.tie-text {
+    color: #ffb75d;
+    font-weight: bold;
+    animation: scaleText 0.5s ease;
+    transform: scale(1.1);
+}
+
+/* Keyframe Animations */
+@keyframes pulse {
+    0% {
+        transform: scale(1.05);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes celebrate {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05) rotate(2deg);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    20%, 60% {
+        transform: translateX(-5px);
+    }
+    40%, 80% {
+        transform: translateX(5px);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes scaleText {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1.1);
+    }
 }
