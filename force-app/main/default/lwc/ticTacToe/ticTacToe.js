@@ -14,7 +14,11 @@ export default class TicTacToe extends LightningElement {
     @track scoreTie = 0;
     @track soundEnabled = true;
     @track winningCells = [];
-    
+    @track gameMode = 'twoPlayer'; // Default to two player mode
+    @track playerSymbol = 'X'; // Default player symbol
+    @track computerSymbol = 'O'; // Default computer symbol
+    isTwoPlayerMode = true;
+    isSinglePlayerMode = false;
     // Audio context
     audioContext = null;
     
@@ -151,16 +155,31 @@ export default class TicTacToe extends LightningElement {
         }
     }
     
+    // Handle game mode change
+    handleModeChange(event) {
+        this.gameMode = event.target.value;
+        this.isTwoPlayerMode = this.gameMode == 'twoPlayer';
+        this.isSinglePlayerMode = this.gameMode == 'singlePlayer';
+        this.startNewGame();
+    }
+    
     initializeGame() {
-        this.board = [
+        const newBoard = [
             ['', '', ''],
             ['', '', ''],
             ['', '', '']
         ];
+        this.board = JSON.parse(JSON.stringify(newBoard));
         this.currentPlayer = 'X';
         this.gameStatus = "Player X's turn";
         this.gameEnded = false;
         this.winningCells = [];
+        console.log(JSON.stringify(this.board));
+        console.log(this.currentPlayer, this.gameStatus, this.gameEnded, this.winningCells);
+        // If computer goes first in single player mode
+        if (this.gameMode === 'singlePlayer' && this.computerSymbol === 'X') {
+            this.makeComputerMove();
+        }
     }
     
     handleCellClick(event) {
@@ -175,7 +194,7 @@ export default class TicTacToe extends LightningElement {
         // Play click sound
         this.playSound('click');
         
-        // Update board
+        // Update board with player's move
         this.board[row][col] = this.currentPlayer;
         
         // Force UI update by creating a new array reference
@@ -185,15 +204,46 @@ export default class TicTacToe extends LightningElement {
         const result = this.checkWinner();
         
         if (result.winner) {
-            this.gameEnded = true;
+            this.handleGameEnd(result);
+        } else {
+            // Switch player
+            this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+            this.gameStatus = `Player ${this.currentPlayer}'s turn`;
             
-            if (result.winner === 'tie') {
-                this.gameStatus = "Game ended in a tie!";
-                this.scoreTie++;
-                this.playSound('tie');
-                this.animateTie();
+            // If in single player mode and it's computer's turn
+            if (this.gameMode === 'singlePlayer' && this.currentPlayer === this.computerSymbol) {
+                // Slight delay before computer moves
+                setTimeout(() => {
+                    this.makeComputerMove();
+                }, 500);
+            }
+        }
+    }
+    
+    handleGameEnd(result) {
+        this.gameEnded = true;
+        
+        if (result.winner === 'tie') {
+            this.gameStatus = "Game ended in a tie!";
+            this.scoreTie++;
+            this.playSound('tie');
+            this.animateTie();
+        } else {
+            this.winningCells = result.winningCells;
+            
+            if (this.gameMode === 'singlePlayer') {
+                if (result.winner === this.playerSymbol) {
+                    this.gameStatus = "You win!";
+                    this.scoreX++;
+                    this.playSound('win');
+                    this.animateWin();
+                } else {
+                    this.gameStatus = "Computer wins!";
+                    this.scoreO++;
+                    this.playSound('lose');
+                    this.animateLose();
+                }
             } else {
-                this.winningCells = result.winningCells;
                 this.gameStatus = `Player ${result.winner} wins!`;
                 
                 if (result.winner === 'X') {
@@ -206,11 +256,121 @@ export default class TicTacToe extends LightningElement {
                     this.animateLose();
                 }
             }
-        } else {
-            // Switch player
-            this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
-            this.gameStatus = `Player ${this.currentPlayer}'s turn`;
         }
+    }
+    
+    makeComputerMove() {
+        console.log('this is make computer move');
+        if (this.gameEnded) return;
+        
+        // Play click sound for computer move
+        this.playSound('click');
+        
+        // Find best move using minimax algorithm
+        const bestMove = this.findBestMove();
+        
+        // Make the move
+        this.board[bestMove.row][bestMove.col] = this.computerSymbol;
+        
+        // Force UI update by creating a new array reference
+        this.board = [...this.board];
+        
+        // Check for winner
+        const result = this.checkWinner();
+        
+        if (result.winner) {
+            this.handleGameEnd(result);
+        } else {
+            // Switch back to player
+            this.currentPlayer = this.playerSymbol;
+            this.gameStatus = "Your turn";
+        }
+    }
+    
+    findBestMove() {
+        // First check if we can win in one move
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (this.board[i][j] === '') {
+                    // Try this move
+                    this.board[i][j] = this.computerSymbol;
+                    
+                    // Check if it's a winning move
+                    const result = this.checkWinner();
+                    
+                    // Undo the move
+                    this.board[i][j] = '';
+                    
+                    if (result.winner === this.computerSymbol) {
+                        return { row: i, col: j };
+                    }
+                }
+            }
+        }
+        
+        // Then check if player can win in one move and block it
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (this.board[i][j] === '') {
+                    // Try this move as if player would make it
+                    this.board[i][j] = this.playerSymbol;
+                    
+                    // Check if it would be a winning move for player
+                    const result = this.checkWinner();
+                    
+                    // Undo the move
+                    this.board[i][j] = '';
+                    
+                    if (result.winner === this.playerSymbol) {
+                        return { row: i, col: j };
+                    }
+                }
+            }
+        }
+        
+        // Take center if available
+        if (this.board[1][1] === '') {
+            return { row: 1, col: 1 };
+        }
+        
+        // Take corners if available
+        const corners = [
+            { row: 0, col: 0 },
+            { row: 0, col: 2 },
+            { row: 2, col: 0 },
+            { row: 2, col: 2 }
+        ];
+        
+        const availableCorners = corners.filter(
+            corner => this.board[corner.row][corner.col] === ''
+        );
+        
+        if (availableCorners.length > 0) {
+            // Choose a random available corner
+            const randomIndex = Math.floor(Math.random() * availableCorners.length);
+            return availableCorners[randomIndex];
+        }
+        
+        // Take any available edge
+        const edges = [
+            { row: 0, col: 1 },
+            { row: 1, col: 0 },
+            { row: 1, col: 2 },
+            { row: 2, col: 1 }
+        ];
+        
+        const availableEdges = edges.filter(
+            edge => this.board[edge.row][edge.col] === ''
+        );
+        
+        if (availableEdges.length > 0) {
+            // Choose a random available edge
+            const randomIndex = Math.floor(Math.random() * availableEdges.length);
+            return availableEdges[randomIndex];
+        }
+        
+        // If we get here, there's no move to make (shouldn't happen)
+        return null;
     }
     
     checkWinner() {
@@ -313,18 +473,16 @@ export default class TicTacToe extends LightningElement {
     startNewGame() {
         this.playSound('newGame');
         
-        // Remove animation classes
+        // Check if elements exist before accessing classList
         const gameBoard = this.template.querySelector('.game-board');
         if (gameBoard) {
             gameBoard.classList.remove('win-animation', 'lose-animation', 'tie-animation');
         }
         
-        
         const statusElem = this.template.querySelector('.game-status');
         if (statusElem) {
             statusElem.classList.remove('win-text', 'lose-text', 'tie-text');
         }
-        
         
         this.initializeGame();
     }

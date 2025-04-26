@@ -1,43 +1,89 @@
 <template>
     <lightning-card title="Tic Tac Toe" icon-name="custom:custom19">
         <div class="slds-p-horizontal_medium">
-            <div class="slds-text-heading_medium slds-text-align_center slds-m-bottom_medium">
+            <!-- Game Mode Selection -->
+            <div class="slds-form-element slds-m-bottom_medium">
+                <label class="slds-form-element__label" for="game-mode">Game Mode</label>
+                <div class="slds-form-element__control">
+                    <div class="slds-radio_button-group">
+                        <span class="slds-button slds-radio_button">
+                            <input type="radio" name="game-mode" id="two-player" value="twoPlayer" 
+                                   checked={isTwoPlayerMode} onchange={handleModeChange} />
+                            <label class="slds-radio_button__label" for="two-player">
+                                <span class="slds-radio_faux">Two Players</span>
+                            </label>
+                        </span>
+                        <span class="slds-button slds-radio_button">
+                            <input type="radio" name="game-mode" id="single-player" value="singlePlayer" 
+                                   checked={isSinglePlayerMode} onchange={handleModeChange} />
+                            <label class="slds-radio_button__label" for="single-player">
+                                <span class="slds-radio_faux">vs Computer</span>
+                            </label>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game status -->
+            <div class="slds-text-heading_medium slds-text-align_center slds-m-bottom_medium game-status">
                 {gameStatus}
             </div>
             
+            <!-- Game board -->
             <div class="game-board">
                 <template for:each={board} for:item="row" for:index="rowIndex">
                     <div key={row} class="board-row">
                         <template for:each={row} for:item="cell" for:index="colIndex">
-                            <div key={cell} 
-                                class="board-cell" 
+                            <div key={rowIndex}
+                                class='board-cell' 
                                 data-row={rowIndex} 
                                 data-col={colIndex}
                                 onclick={handleCellClick}>
-                                {cell}
+                                {cell} {colIndex}
                             </div>
                         </template>
                     </div>
                 </template>
             </div>
             
+            <!-- Game controls -->
             <div class="slds-text-align_center slds-m-top_medium">
                 <lightning-button 
                     label="New Game" 
                     variant="brand" 
-                    onclick={startNewGame}>
+                    onclick={startNewGame}
+                    class="slds-m-right_x-small">
                 </lightning-button>
+                
+                <lightning-button-icon 
+                    icon-name={soundIcon} 
+                    alternative-text={soundTitle}
+                    title={soundTitle}
+                    onclick={toggleSound}
+                    variant="border-filled">
+                </lightning-button-icon>
             </div>
             
+            <!-- Score display -->
             <div class="slds-grid slds-gutters slds-m-top_medium">
                 <div class="slds-col">
                     <div class="slds-text-heading_small slds-text-align_center">
-                        Player X: {scoreX}
+                        <template if:true={isTwoPlayerMode}>
+                            Player X: {scoreX}
+                        </template>
+                        <template if:true={isSinglePlayerMode}>
+                            You: {scoreX}
+                        </template>
                     </div>
                 </div>
                 <div class="slds-col">
                     <div class="slds-text-heading_small slds-text-align_center">
-                        Player O: {scoreO}
+                        <template if:true={isTwoPlayerMode}>
+                            Player O: {scoreO}
+                        </template>
+                        <template if:true={isSinglePlayerMode}>
+                            Computer: {scoreO}
+                        </template>
                     </div>
                 </div>
                 <div class="slds-col">
